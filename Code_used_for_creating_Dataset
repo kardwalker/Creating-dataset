@@ -1,0 +1,62 @@
+import time
+import math
+from pathlib import Path
+import pandas as pd
+from tqdm.notebook import tqdm
+import requests
+
+def fetch_issues(
+    repo="huggingface/datasets",  # Include owner and repo name
+    num_issues=10000,  # Remove commas in numbers
+    issues_path=Path("issues-data"),
+    github_token=None  # Add token for authentication
+):
+    issues_path.mkdir(exist_ok=True, parents=True)
+
+    headers = {
+        'Authorization': f'token {github_token}',  # Add your token here
+        'User-Agent': 'Python-requests'
+    } if github_token else {'User-Agent': 'Python-requests'}
+
+    per_page = 100
+    num_pages = math.ceil(num_issues / per_page)  # Fix typo: cell -> ceil
+    base_url = f"https://api.github.com/repos/{repo}/issues"
+    all_issues = []
+    request_count = 0  # Track API requests for rate limiting
+
+    for page in tqdm(range(1, num_pages + 1)):  # GitHub pages are 1-based
+        params = {
+            'page': page,
+            'per_page': per_page,
+            'state': 'all'
+        }
+
+        response = requests.get(base_url, headers=headers, params=params)
+        request_count += 1
+
+        # Check response status
+        if response.status_code != 200:
+            print(f"Error fetching page {page}: {response.status_code}")
+            response.raise_for_status()
+
+        # Handle rate limits using GitHub headers
+        remaining = int(response.headers.get('X-RateLimit-Remaining', 1))
+        if remaining <= 1:
+            reset_time = int(response.headers.get('X-RateLimit-Reset', time.time() + 3600))
+            sleep_duration = max(reset_time - time.time(), 0) + 10  # Add buffer
+            print(f"Rate limit reached. Sleeping for {sleep_duration:.1f} seconds.")
+            time.sleep(sleep_duration)
+            request_count = 0  # Reset counter after sleep
+
+        page_issues = response.json()
+        all_issues.extend(page_issues)
+
+        if len(all_issues) >= num_issues:
+            break  # Stop if we've fetched enough issues
+
+    df = pd.DataFrame(all_issues[:num_issues])  # Trim to desired number
+    df.to_json(issues_path / f"{repo.split('/')[-1]}-issues.jsonl", 
+              orient="records", lines=True)
+    print(f"Downloaded {len(all_issues)} issues. Data saved to {issues_path}")
+
+# Usage: fetch_issues(github_token="your_github_token_here")
