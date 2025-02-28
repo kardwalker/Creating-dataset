@@ -1,0 +1,25 @@
+# Conversion of JSON lines into Dataset 
+# Import necessary libraries
+import pandas as pd
+
+# Load the JSONL file into a DataFrame
+df = pd.read_json("/content/issues-data/datasets-issues.jsonl", lines=True)
+
+# Select the useful columns
+useful = ["title", "labels", "comments", "html_url", "body",]
+df_useful = df[useful]
+df_useful
+
+for col in df_useful.columns:
+  print(df_useful[col].isnull().sum())
+
+df_useful.info()  
+df_useful.dropna(inplace=True)
+df_useful
+
+df_useful.columns[df_useful.columns.duplicated()]
+
+df_useful = df_useful.loc[:, ~df_useful.columns.duplicated()]
+from datasets import Dataset
+dataset = Dataset.from_pandas(df_useful)
+dataset
