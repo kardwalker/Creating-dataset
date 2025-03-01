@@ -3,7 +3,7 @@
 This dataset consists of GitHub issues in JSONL format.Each entry represents an issue
 with various metadata fields, such as labels,comments ,created_at  etc
 
-### Fil2e Format
+### File Format
 Format : JSONL (JSON lines)
 
 ### Key Fields
